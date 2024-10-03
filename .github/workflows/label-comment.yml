@@ -12,18 +12,24 @@ jobs:
     steps:
       - name: Create a comment
         id: create_comment
-        uses: peter-evans/create-or-update-comment@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: Created comment. Comment ID: ${{ github.run_id }}
-      
+        run: |
+          COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -X POST \
+            -d "{\"body\": \"Created comment. Comment ID: ${{ github.run_id }}\"}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments")
+          echo $COMMENT
+          COMMENT_ID=$(echo $COMMENT | jq -r '.id')
+          echo "::set-output name=comment_id::$COMMENT_ID"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Update the comment
-        uses: peter-evans/create-or-update-comment@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          issue-number: ${{ github.event.pull_request.number }}
-          comment-id: ${{ steps.create_comment.outputs.comment-id }}
-          body: Updated comment. Comment ID: ${{ github.run_id }}
+        run: |
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -X PATCH \
+            -d "{\"body\": \"Updated comment. Comment ID: ${{ github.run_id }}\"}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/comments/${{ steps.create_comment.outputs.comment_id }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
